@@ -1,0 +1,61 @@
+#!/usr/bin/env python2
+
+# Imports
+import hashlib
+import argparse
+import getpass
+
+# Parses the arguments
+parser = argparse.ArgumentParser(description="Generates a secure password")
+parser.add_argument("-m", "--master", help="argument to define the master password (Please omit this variable and use the prompt instead, otherwise your master password will be in your history!)")
+parser.add_argument("-c", "--confirm", help="prompt the user again for a password if not using --master", action="store_true")
+parser.add_argument("-i", "--identifier", help="identifier to use (site name,program name, etc.)")
+parser.add_argument("-l", "--length", help="length of the resulting password (invalid if result is a PIN)", type=int)
+parser.add_argument("-p", "--pin", help="output PIN instead", action="store_true")
+args = parser.parse_args()
+
+# Check to see if user used -m
+# If so, use that. If not, prompt user for password
+if(args.master):
+    master = args.master
+else:
+    print "Note: Input will be hidden from view for security purposes."
+    if(args.confirm):
+        confirm = 0
+        while(confirm == 0):
+            master1 = getpass.getpass("Master password: ")
+            master2 = getpass.getpass("Confirm password: ")
+            if(master1 == master2):
+                master = master1
+                confirm = 1
+            else:
+                print "Passwords do not match! Try again."
+    else:
+        master = getpass.getpass("Master password: ")
+
+# Create instance of hashlib and generate an md5 hash
+# If there is an identifier, then concatinate it to the string with a space in between
+# If not, concatinate a space onto the string
+m = hashlib.md5()
+if(args.identifier):
+    m.update("%s %s"%(master,args.identifier))
+else:
+    m.update("%s "%master)
+hash = m.hexdigest()
+
+# Checks to see if output will be a PIN or not
+# If it is, then convert the hash from hex to decimal and trundate it to 4 numbers
+# If not, replace a,c and e with A,C and E respectively
+# Also check to see if user specified a length
+# If so, then trundate the hash to specified length
+# Finally have the resulting password printed to the screen
+if(args.pin):
+    pin = str(int(hash,16))[:4]
+    print "PIN: %s"%pin
+else:
+    preResult = hash.replace('a','A').replace('c','C').replace('e','E')
+    if(args.length):
+        result = preResult[:args.length]
+    else:
+        result = preResult
+    print "Result: %s"%result
