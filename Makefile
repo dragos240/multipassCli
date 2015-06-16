@@ -1,4 +1,4 @@
-LIBS=-lssl -lcrypto
+LIBS=-lssl -lcrypto -lm
 
 all: clean multipass
 

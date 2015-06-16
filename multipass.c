@@ -4,58 +4,37 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <string.h>
 #include <unistd.h>
 #include <openssl/evp.h>
 
+int generate_pass(unsigned char *md_value);
+int generate_pin(unsigned char *md_value);
+int digest(char *master, char *identifier, int is_pin);
+
 int main(int argc, char *argv[]){
-	int confirm = 0;
-	int pin = 0;
-	char *length;
-	length = "20";
+	int is_pin = 0;
 	char *master;
 	char *identifier;
 
 	int index;
 	int c;
 
-	EVP_MD_CTX *mdctx;
-	const EVP_MD *md;
-	unsigned char md_value[EVP_MAX_MD_SIZE];
-	int md_len, i;
-	char* space;
-	space = " ";
-
 	if(!argv[1]){
-		printf("Usage: multipass [-cp] [-l length] masterPassword identifier\n\n\
-	-c\tRe-prompt user for password after it is entered\n\
-	-p\tOutput PIN instead of password\n\
-	-l\tOutput password with specified length\n");
+		printf("Usage: multipass [-p] masterPassword identifier\n\n\
+	-p\tOutput PIN instead of password\n");
 		exit(1);
 	}
 
 	while((c = getopt(argc, argv, "cpl:")) != -1)
 		switch(c){
-			case 'c':
-				confirm = 1;
-				printf("Confirm = true\n");
-				break;
 			case 'p':
-				pin = 1;
+				is_pin = 1;
 				printf("PIN = true\n");
 				break;
-			case 'l':
-				if(atoi(optarg) == 0){
-					printf("Invalid length!");
-					return 0;
-				}
-				length = optarg;
-				printf("Length: %d\n", atoi(length));
-				break;
 			case '?':
-				if(optopt == 'l')
-					fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-				else if(isprint(optopt))
+				if(isprint(optopt))
 					fprintf(stderr, "Unknown option '-%c.\n'", optopt);
 				else
 					fprintf(stderr, "Unknown option character '\\x%x'.\n", optopt);
@@ -81,7 +60,22 @@ int main(int argc, char *argv[]){
 			printf("Identifier: \"%s\"\n", identifier);}
 		else
 			fprintf(stderr, "Unknown option\n", argv[index]);
-	
+
+	digest(master, identifier, is_pin);
+
+	return 0;
+}
+
+int digest(char *master, char* identifier, int is_pin){
+	int index;
+	int c;
+
+	EVP_MD_CTX *mdctx;
+	const EVP_MD *md;
+	unsigned char md_value[EVP_MAX_MD_SIZE];
+	int md_len, i;
+	char* space;
+	space = " ";
 	OpenSSL_add_all_digests();
 	
 	md = EVP_get_digestbyname("SHA256");
@@ -93,19 +87,36 @@ int main(int argc, char *argv[]){
 	EVP_DigestUpdate(mdctx, identifier, strlen(identifier));
 	EVP_DigestFinal_ex(mdctx, md_value, &md_len);
 	EVP_MD_CTX_destroy(mdctx);
-
-	// Password
-	printf("Digest is: Mp2!");
-	for(i = 0; i < 8; i++)
-		printf("%02x", md_value[i]);
-	printf("\n");
 	
+	if(is_pin == 1)
+		generate_pin(md_value);
+	else
+		generate_pass(md_value);
 
-	// Pin
-	for(i = 0; i < md_len; i++)
-		printf("%02d", md_value[i]);
-	printf("\n");
-	
 	EVP_cleanup();
+	return 0;
+}
+
+int generate_pin(unsigned char *md_value){
+	unsigned long pin;
+	pin = 0;
+	int i;
+	for(i = 0; i < 8; i++){
+		pin += md_value[i]*(long)floor(pow(256,7-i));
+	}
+
+	printf("PIN: %lu\n", pin % 10000);
+	return 0;
+}
+
+int generate_pass(unsigned char *md_value){
+	int digest[9];
+	printf("Digest is: Mp2!");
+	int i;
+	for(i = 0; i < 8; i++){
+		printf("%02x", md_value[i]);
+		digest[i] = md_value[i];}
+	digest[8] = '\0';
+	printf("\n");
 	return 0;
 }
